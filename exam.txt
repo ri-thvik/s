@@ -1,0 +1,698 @@
+================================================================================
+                    INTERNAL EXAM PREPARATION GUIDE
+                    Software Engineering (23CC501PC)
+                    A.Y 2026-2027, Department of CSE
+================================================================================
+
+TABLE OF CONTENTS
+--------------------------------------------------------------------------------
+1. DOCKER – MULTI-CONTAINER APPLICATION
+2. JENKINS – JAVA APPLICATION BUILD AND CI
+3. KUBERNETES – CONTAINER DEPLOYMENT AND AUTO SCALING
+4. NAGIOS – INFRASTRUCTURE AND APPLICATION MONITORING
+5. AWS – CLOUD DEPLOYMENT USING EC2
+6. SCENARIO-BASED QUESTIONS (ALL TOPICS)
+7. LLM OFFLINE COMMANDS FROM CMD
+8. QUICK REFERENCE CARD
+9. EXAM DAY CHECKLIST
+================================================================================
+
+---
+1. DOCKER – MULTI-CONTAINER APPLICATION
+--------------------------------------------------------------------------------
+
+TASK 1.1: PULL MYSQL AND WORDPRESS IMAGES
+-------------------------------------------
+$ docker pull mysql:8.0
+$ docker pull wordpress:latest
+$ docker images
+# Expected: REPOSITORY TAG IMAGE ID SIZE
+# mysql 8.0 ~500MB, wordpress latest ~570MB
+
+TASK 1.2: CREATE CUSTOM DOCKER NETWORK
+----------------------------------------
+$ docker network create library-network
+$ docker network ls
+# Expected: NETWORK ID NAME DRIVER SCOPE
+
+TASK 1.3: RUN MYSQL CONTAINER WITH PERSISTENCE
+----------------------------------------------
+$ docker run -d --name library-mysql \
+  --network library-network \
+  -e MYSQL_ROOT_PASSWORD=Root@12345 \
+  -v mysql-data:/var/lib/mysql \
+  --restart unless-stopped mysql:8.0
+
+$ docker ps
+# Expected: CONTAINER ID IMAGE COMMAND STATUS PORTS NAMES
+# library-mysql mysql:8.0 Up <seconds> 3306/tcp library-mysql
+
+TASK 1.4: RUN WORDPRESS CONTAINER LINKED TO MYSQL
+---------------------------------------------------
+$ docker run -d --name library-wordpress \
+  --network library-network \
+  -p 8080:80 \
+  -e WORDPRESS_DB_HOST=library-mysql:3306 \
+  -e WORDPRESS_DB_USER=root \
+  -e WORDPRESS_DB_PASSWORD=Root@12345 \
+  -e WORDPRESS_DB_NAME=librarydb \
+  --restart unless-stopped wordpress:latest
+
+$ docker ps
+# Expected: PORTS: 0.0.0.0:8080->80/tcp
+
+TASK 1.5: ACCESS WORDPRESS IN BROWSER
+----------------------------------------
+$ # Open browser and visit:
+$ http://localhost:8080
+# Expected: WordPress language selection page loads
+# Select language and continue - database already configured
+
+TASK 1.6: DEMONSTRATE CONTAINER RECOVERY AND DATA PERSISTENCE
+--------------------------------------------------------------
+$ # Stop MySQL container (simulate crash)
+$ docker stop library-mysql
+$ # Start MySQL container again (simulate recovery)
+$ docker start library-mysql
+$ # Verify data persistence
+$ docker exec library-mysql mysql -uroot -pRoot@12345 -e "SHOW DATABASES;"
+$ # If volume removed, data LOST; with -v mysql-data, data PRESERVED
+
+================================================================================
+DOCKER SCENARIO QUESTIONS (MASTER THESE)
+--------------------------------------------------------------------------------
+Q: What happens if MySQL container crashes while WordPress is running?
+A: WordPress shows database connection errors, pages won't load. MySQL needs restart.
+
+Q: How can database information be recovered after container deletion?
+A: If persistent volumes were used (-v mysql-data), data survives. Restart new MySQL 
+  container pointing to same volume.
+
+Q: Why is a custom Docker network required?
+A: Allows containers to discover each other by name instead of IP addresses. 
+  Provides isolation from other Docker containers.
+
+Q: How would you prevent unauthorized access to MySQL?
+A: Strong passwords, bind to specific IPs, Docker secrets, MySQL user privileges.
+
+Q: How would you deploy five department websites using Docker?
+A: 5 WordPress containers, each with own volume, same network, one MySQL instance, 
+  different port mappings (8080, 8081, 8082, etc.).
+================================================================================
+---
+2. JENKINS – JAVA APPLICATION BUILD AND CONTINUOUS INTEGRATION
+--------------------------------------------------------------------------------
+
+TASK 2.1: CONFIGURE JDK, MAVEN AND JENKINS PLUGINS
+---------------------------------------------------
+$ # Start Jenkins if stopped
+$ net start Jenkins
+$ # Or: Open browser http://localhost:8080
+
+$ # Login with admin credentials
+$ # Username: admin
+$ # Password: from C:\ProgramData\Jenkins\.jenkins\secrets\initialAdminPassword
+$ # OR: jenkinsadmin (common exam default)
+
+$ # Install required plugins
+$ # Manage Jenkins → Manage Plugins → Available Plugins
+$ # Search and install: Maven Plugin, Git plugin, GitHub API Plugin
+$ # Or: During initial setup, select "Install suggested plugins"
+
+$ # Configure Global Tool Settings
+$ # Manage Jenkins → Global Tool Configuration →
+$ # Add JDK: Name "JDK11", JAVA_HOME path
+$ # Add Maven: Name "Maven3", Maven Home path
+$ # Check: Download sources and Download javadoc
+
+TASK 2.2: INTEGRATE GITHUB REPOSITORY WITH JENKINS
+----------------------------------------------------
+$ # New Item → "library-management-ci" → Freestyle project → OK
+
+$ # Source Code Management → Git →
+$ # Repository URL: https://github.com/deepthisagar7/library-management.git
+$ # Branches to build: */main
+$ # Credentials: Add (SSH key or Username with password)
+$ # Test Connection → should show "Connected"
+
+TASK 2.3: CONFIGURE BUILD TRIGGERS AND MAVEN GOALS
+----------------------------------------------------
+$ # Build Triggers → Poll SCM → H/5 * * * * (every 5 minutes)
+$ # Or: Build when a change is pushed to GitHub
+
+$ # Add build step → Invoke Maven →
+$ # Goals: clean test (compile + test)
+$ # Or: compile (only compile)
+$ # Or: test (only run tests)
+
+$ # Maven: Maven3 (configured in Global Tool Config)
+$ # POM: pom.xml
+
+TASK 2.4: EXECUTE COMPILATION AND TEST CASES
+-----------------------------------------------
+$ # Job dashboard → Build Now
+$ # Watch Build History increment
+$ # Click latest build number to expand
+$ # Console Output → look for "Compiling Maven project"
+$ # Look for: "Running tests" section
+$ # BUILD SUCCESS or BUILD FAILURE at end
+
+$ # Check Test Results → scroll to "Test Results" section
+$ # Click links to view test reports
+$ # Green progress bar = tests passed, Red = tests failed
+
+TASK 2.5: ARCHIVE THE GENERATED WAR/JAR ARTIFACT
+--------------------------------------------------
+$ # Post-build Actions → Check "Archive the artifacts"
+$ # Artifacts: **/target/*.war (for web apps)
+$ # Or: **/target/*.jar (for Java apps)
+
+$ # Optional: "Publish JUnit test result report"
+$ # Test report XMLs: **/surefire-reports/*.xml
+
+$ # Build Now → Click "Artifacts" on build page
+$ # Download WAR/JAR file from artifacts section
+
+$ # Artifact Location:
+$ # JENKINS_HOME/jobs/library-management-ci/builds/<build-number>/artifacts/
+$ # Or: WORKSPACE/target/library-management.war
+
+TASK 2.6: DEMONSTRATE SUCCESSFUL AND FAILED BUILDS
+----------------------------------------------------
+SUCCESSFUL BUILD:
+$ # Build → Build Now → Console Output → "BUILD SUCCESS"
+$ # Click "Artifacts" → Download WAR file
+$ # Check "Test Results" → Green progress bar
+
+FAILED BUILD (Compilation Error):
+$ # Edit Java file → add syntax error
+$ # git commit -m "introduce compilation error"
+$ # git push origin main
+$ # Auto-trigger new build → Console shows errors with file paths/line numbers
+$ # Build result: "BUILD FAILURE"
+$ # Fix error → git commit -m "fix the error"
+# git push origin main → new build → "BUILD SUCCESS"
+
+FAILED BUILD (Test Failure):
+$ # Modify test to expect wrong value
+# Push → build runs tests → red progress bar
+# Fix test → another build → green progress bar
+
+================================================================================
+JENKINS SCENARIO QUESTIONS (MASTER THESE)
+--------------------------------------------------------------------------------
+Q: How does Jenkins identify compilation errors?
+A: Errors appear in Console Output with ERROR prefix, showing file path and line 
+  number. Build fails if any compilation errors exist.
+
+Q: What if compilation succeeds but tests fail?
+A: Depends on Maven goal: mvn compile → build succeeds. mvn test → build fails. 
+  Can set failTestsWithNoTests=false.
+
+Q: Why Maven instead of manual JAR downloads?
+A: Dependency management via pom.xml, handles transitive dependencies, reproducible 
+  builds, uses Central Maven Repository.
+
+Q: How to build only specific Git branch?
+A: Branches to build → */main or use wildcard *. Or configure Multibranch Pipeline.
+
+Q: Difference between CI and CD?
+A: CI (Continuous Integration): Automated build + test on every commit. 
+  CD (Continuous Deployment): Automated deployment to prod/staging after CI passes.
+================================================================================
+---
+3. KUBERNETES – CONTAINER DEPLOYMENT AND AUTO SCALING
+--------------------------------------------------------------------------------
+
+TASK 3.1: START MINIKUBE CLUSTER
+---------------------------------
+$ minikube start
+$ minikube status
+# Expected: minikube: Running, cluster: Running, kubectl: Correctly configured
+
+TASK 3.2: CREATE DEPLOYMENT WITH TWO REPLICAS
+-----------------------------------------------
+$ kubectl create deployment library-app --image=wordpress:latest --replicas=2
+$ kubectl get deployment library-app
+# Expected: NAME READY UP-TO-DATE AVAILABLE AGE
+# library-app 2/2 2 2 <timestamp>
+
+TASK 3.3: EXPOSE APPLICATION USING KUBERNETES SERVICE
+------------------------------------------------------
+$ kubectl expose deployment library-app --type=NodePort --port=80
+$ kubectl get service library-app
+# Expected: PORT(S) column: 30000/80/tcp (30000 = NodePort, varies each time)
+
+TASK 3.4: SCALE DEPLOYMENT FROM 2 TO 5 REPLICAS
+--------------------------------------------------
+$ kubectl scale deployment library-app --replicas=5
+$ kubectl get deployment library-app
+# Expected: READY column should show 5/5 (was 2/2)
+
+TASK 3.5: DEMONSTRATE AUTOMATIC POD RECRUPTION AFTER FAILURE
+-------------------------------------------------------------
+$ kubectl get pods -o wide
+$ # Note pod names (e.g., library-app-5d6f9b7d4c-pxxxy)
+$ kubectl delete pod library-app-5d6f9b7d4c-XXXXX
+$ kubectl get pods -o wide
+# Expected: New pod appears and starts Running automatically
+
+TASK 3.6: PERFORM ROLLING UPDATE AND ROLLBACK
+-----------------------------------------------
+$ # 6a: Rolling Update
+$ kubectl set image deployment/library-app library-app=wordpress:latest
+$ kubectl rollout status deployment/library-app
+
+$ # 6b: Rollback to Previous Version
+$ kubectl rollout undo deployment/library-app
+$ kubectl rollout status deployment/library-app
+
+$ # Check revision history
+$ kubectl rollout history deployment/library-app
+
+================================================================================
+KUBERNETES SCENARIO QUESTIONS (MASTER THESE)
+--------------------------------------------------------------------------------
+Q: What happens when one pod crashes?
+A: Kubernetes Deployment controller notices desired state not met. Creates new pod 
+  automatically via ReplicaSet. Pod goes through Pending → ContainerCreating → Running.
+
+Q: How does Kubernetes maintain desired replicas?
+A: Deployment controller constantly compares current state vs desired state. If fewer 
+  pods running, creates new ones. Uses ReplicaSet to manage pods.
+
+Q: Manual vs auto scaling?
+A: Manual: kubectl scale deployment name --replicas=N. Auto: Horizontal Pod 
+  Autoscaler (HPA) based on CPU/memory metrics.
+
+Q: Why Kubernetes Service required?
+A: Provides stable networking endpoint. Pod IPs change when pods recreated, but 
+  Service IP stays constant. Enables reliable communication.
+
+Q: Recover from failed application update?
+A: kubectl rollout undo deployment/<name> rolls back to last good version. 
+  kubectl rollout history shows revision history.
+================================================================================
+---
+4. NAGIOS – INFRASTRUCTURE AND APPLICATION MONITORING
+--------------------------------------------------------------------------------
+
+TASK 4.1: PULL AND RUN NAGIOS DOCKER IMAGE
+-------------------------------------------
+$ docker run -d --name nagios \
+  -p 8080:80 \
+  -e NAGIOS_PASSWORD=nagiosadmin \
+  nagios/base
+
+$ # Access Nagios dashboard
+$ # Open browser: http://localhost:8080
+
+$ # Login credentials
+$ # Username: nagiosadmin
+$ # Password: nagiosadmin (or as configured)
+
+$ # Verify: Browser loads http://localhost:8080, login screen appears
+
+TASK 4.2: CONFIGURE HOST AND SERVICE MONITORING
+----------------------------------------------
+$ # Nagios Dashboard → Host Services → Add Host →
+$ # Host name: library-server
+$ # Alias: Library Management Server
+$ # Address: 192.168.1.100 (or localhost)
+$ # Enable host checking: Yes
+$ # Check command: default-check-alive (ping)
+
+$ # Add Service → Host Services → Add Service →
+$ # Host: library-server
+$ # Service description: HTTP
+$ # Check command: check-http
+$ # Warning threshold: response time > 5s
+$ # Critical threshold: response time > 10s
+
+TASK 4.3: MONITOR CPU, MEMORY, DISK AND UPTIME
+------------------------------------------------
+$ # CPU: check-cpu -w 80 -c 90
+$ #   WARNING if CPU > 80%
+$ #   CRITICAL if CPU > 90%
+
+$ # Memory: check-mem -w 80 -c 90
+$ #   WARNING if Memory > 80%
+$ #   CRITICAL if Memory > 90%
+
+$ # Disk: check-disk -w 80 -c 90
+$ #   WARNING if Disk > 80%
+$ #   CRITICAL if Disk > 90%
+
+$ # Server Uptime: check-uptime
+
+TASK 4.4: CONFIGURE HTTP AND DATABASE SERVICE CHECKS
+------------------------------------------------------
+$ # HTTP: check-http -w 5 -c 10 (seconds)
+$ # MySQL: check_mysql or custom script
+$ # SMTP: check-smtp
+
+TASK 4.5: DEFINE WARNING AND CRITICAL THRESHOLDS
+--------------------------------------------------
+$ # WARNING: Problem detected but might recover
+$ # CRITICAL: Serious problem, definitely degraded
+
+$ # Dashboard colors: GREEN(OK)=GREEN, ORANGE(WARNING)=ORANGE, RED(CRITICAL)=RED
+
+================================================================================
+NAGIOS SCENARIO QUESTIONS (MASTER THESE)
+--------------------------------------------------------------------------------
+Q: How does Nagios identify high CPU utilization?
+A: Via check commands (e.g., check_cpu plugin). Returns WARNING if above threshold, 
+  CRITICAL if higher.
+
+Q: Difference between WARNING and CRITICAL?
+A: WARNING: Problem detected but might recover (ORANGE). CRITICAL: Serious problem, 
+  definitely degraded (RED).
+
+Q: Identify app failure when server running?
+A: Service checks (HTTP, port, custom scripts) detect app-level failures independent 
+  of server health.
+
+Q: Nagios monitoring server fails?
+A: Monitoring stops. No alerts until restarted. Redundant/multiple Nagios instances 
+  recommended.
+
+Q: Identify downtime cause (Tomcat, MySQL, networking)?
+A: Check each: 1) Web app access (Tomcat), 2) DB connection (MySQL), 3) Network 
+  connectivity, ping, ports.
+================================================================================
+---
+5. AWS – CLOUD DEPLOYMENT USING EC2
+--------------------------------------------------------------------------------
+
+TASK 5.1: LAUNCH EC2 INSTANCE
+------------------------------
+$ # AWS Console → Launch Instance
+$ # AMI: Amazon Linux 2023 or Ubuntu Server
+$ # Instance type: t2.micro (free tier) or suitable
+$ # Key pair: Create new .pem file, keep secure
+$ # Security Group: Configure rules (see below)
+$ # Note: Public IPv4 DNS or IP (required for browser access)
+
+TASK 5.2: CONFIGURE SECURITY GROUPS
+--------------------------------------
+$ # INBOUND RULES:
+$ # 1. SSH (port 22) - Your IP only (RESTRICTED!)
+$ #   Type: SSH, Protocol: TCP, Port: 22, Source: 203.0.113.0/32 (your IP)
+
+$ # 2. HTTP (port 80) - Anyone (browser access)
+$ #   Type: HTTP, Protocol: TCP, Port: 80, Source: 0.0.0.0/0
+
+$ # 3. Custom TCP (port 8080) - If app runs on 8080
+$ #   Type: Custom TCP, Protocol: TCP, Port: 8080, Source: 0.0.0.0/0
+
+$ # OUTBOUND RULES: Allow All Outbound (default)
+$ #   Type: All Traffic, Protocol: All, Port: All, Destination: 0.0.0.0/0
+
+$ # ⚠️ NEVER open SSH (port 22) to 0.0.0.0/0
+
+TASK 5.3: INSTALL TOMCAT AND APPLICATION
+------------------------------------------
+$ # ssh -i your-key.pem ec2-user@<public-dns-or-ip>
+
+$ # Install Tomcat (Amazon Linux):
+$ # sudo yum install tomcat (or wget tarball, extract)
+
+$ # Copy application:
+$ # sudo mkdir -p /var/lib/tomcat/webapps/
+$ # Copy WAR file to /var/lib/tomcat/webapps/
+
+$ # Start Tomcat:
+$ # sudo systemctl start tomcat
+
+$ # Verify:
+$ # sudo systemctl status tomcat
+
+$ # Browse:
+$ # http://<public-ip-or-dns>:8080/your-app
+
+TASK 5.4: DATABASE CONNECTIVITY (RDS MYSQL)
+--------------------------------------------
+$ # Launch RDS MySQL Instance
+$ # Engine: MySQL, Instance class: db.t2.micro (free tier)
+$ # Master username: admin, Master password: (secure)
+
+$ # Configure Security Group
+$ # Allow MySQL (3306) from EC2 instance's Security Group
+$ # This allows EC2 to connect to RDS
+
+$ # Configure application connection
+$ # spring.datasource.url=jdbc:mysql://<rds-endpoint>:3306/librarydb
+$ # spring.datasource.username=admin
+$ # spring.datasource.password=(password)
+
+TASK 5.5: BROWSER ACCESSIBILITY
+---------------------------------
+$ # http://<public-ip-or-dns>:8080
+$ # Verify application loads, login page appears, features work
+
+$ # Troubleshooting If Not Accessible:
+$ # 1. Check Security Group allows HTTP (80/8080)
+$ # 2. Verify Tomcat running: sudo systemctl status tomcat
+$ # 3. Check firewall
+$ # 4. Verify Public IP/DNS is correct
+$ # 5. Ensure route table associated with subnet
+
+TASK 5.6: IMPROVE APPLICATION AVAILABILITY
+-------------------------------------------
+$ # Single EC2 → Problems: If instance fails, app completely down, no fault tolerance
+
+$ # ALB + Multiple EC2 → Solutions:
+$ # 1. Application Load Balancer (ALB)
+$ #   - Distributes traffic across instances
+$ #   - Health checks automatically
+$ #   - Zero-downtime deployments
+
+$ # 2. Multiple EC2 Instances
+$ #   - 2+ instances in different AZs
+$ #   - Auto Scaling Group
+$ #   - If one fails, others handle traffic
+
+$ # 3. Benefits:
+$ #   - Fault tolerance (if 1 fails, others work)
+$ #   - Horizontal scaling (add/remove instances)
+$ #   - Zero-downtime deployments
+$ #   - Better performance (distributed load)
+
+================================================================================
+AWS SCENARIO QUESTIONS (MASTER THESE)
+--------------------------------------------------------------------------------
+Q: What could cause EC2 application to be inaccessible through browser?
+A: Security Group blocking 80/8080, Tomcat not running, firewall on instance, 
+  wrong public IP, no route table association.
+
+Q: Why should SSH access be restricted?
+A: Security risk: unauthorized access, potential server compromise, brute force attacks. 
+  Only allow specific IPs.
+
+Q: What happens if Tomcat stops while EC2 is running?
+A: Application becomes unavailable via browser. Need to restart Tomcat. EC2 instance 
+  stays running.
+
+Q: How can application availability be improved?
+A: Multiple AZs, Load Balancer, Auto Scaling Groups, instance monitoring, 
+  graceful shutdown/start.
+
+Q: Why ALB + multiple EC2 better than single EC2?
+A: Fault tolerance (if one fails, others handle traffic), horizontal scaling, 
+  zero-downtime deployments, distributed load, high availability.
+================================================================================
+---
+6. SCENARIO-BASED QUESTIONS (ALL TOPICS)
+--------------------------------------------------------------------------------
+DOCKER SCENARIOS:
+Q: MySQL container crashes while WordPress running? → WordPress shows DB errors, 
+  pages won't load. MySQL needs restart.
+Q: Database recovered after container deletion? → If persistent volumes used (-v 
+  mysql-data), data survives. Restart new MySQL container pointing to same volume.
+Q: Custom Docker network required? → Allows containers to discover each other by 
+  name. Provides isolation from other Docker containers.
+Q: Prevent unauthorized access to MySQL? → Strong passwords, bind to specific IPs, 
+  Docker secrets, MySQL user privileges.
+Q: Deploy five department websites using Docker? → 5 WordPress containers, each 
+  with own volume, same network, one MySQL instance, different port mappings 
+  (8080, 8081, 8082, etc.).
+
+JENKINS SCENARIOS:
+Q: Jenkins identifies compilation errors? → Errors in Console Output with file 
+  paths and line numbers. Build fails if errors exist.
+Q: Compilation succeeds but tests fail? → Depends on goal: mvn compile → succeeds. 
+  mvn test → fails. Can set failTestsWithNoTests=false.
+Q: Maven instead of manual JAR downloads? → Dependency management via pom.xml, 
+  transitive dependencies, reproducible builds, Central Repository.
+Q: Build only specific Git branch? → Branches to build */main or wildcard *. 
+  Or Multibranch Pipeline.
+Q: CI vs CD difference? → CI: Automated build + test on every commit. CD: 
+  Automated deployment after CI passes.
+
+KUBERNETES SCENARIOS:
+Q: One pod crashes? → Deployment controller notices desired state not met. Creates 
+  new pod automatically via ReplicaSet.
+Q: Kubernetes maintains desired replicas? → Constantly compares current state vs 
+  desired state. Creates new pods if fewer running. Uses ReplicaSet.
+Q: Manual vs auto scaling? → Manual: kubectl scale deployment name --replicas=N. 
+  Auto: Horizontal Pod Autoscaler (HPA) based on CPU/memory.
+Q: Kubernetes Service required? → Stable endpoint. Pod IPs change when pods 
+  recreated, Service IP stays constant.
+Q: Recover from failed update? → kubectl rollout undo deployment/<name> rolls 
+  back to last good version. kubectl rollout history shows revision history.
+
+NAGIOS SCENARIOS:
+Q: Identify high CPU utilization? → Via check commands (e.g., check_cpu plugin). 
+  Returns WARNING if above threshold, CRITICAL if higher.
+Q: Difference between WARNING and CRITICAL? → WARNING: Problem detected but might 
+  recover (ORANGE). CRITICAL: Serious problem, definitely degraded (RED).
+Q: Identify app failure when server running? → Service checks (HTTP, port, 
+  custom scripts) detect app-level failures independent of server health.
+Q: Nagios monitoring server fails? → Monitoring stops. No alerts until restarted. 
+  Redundant instances recommended.
+Q: Identify downtime cause (Tomcat, MySQL, networking)? → Check each: 1) Web 
+  app access (Tomcat), 2) DB connection (MySQL), 3) Network connectivity, ping, 
+  ports.
+
+AWS SCENARIOS:
+Q: EC2 application inaccessible through browser? → Security Group blocking 80/8080, 
+  Tomcat not running, firewall, wrong IP, route table issue.
+Q: SSH access restricted? → Security risk: unauthorized access, brute force attacks. 
+  Only allow specific IPs.
+Q: Tomcat stops while EC2 running? → Application unavailable via browser. Need to 
+  restart Tomcat. EC2 stays running.
+Q: Improve application availability? → Multiple AZs, Load Balancer, Auto Scaling 
+  Groups, instance monitoring.
+Q: ALB + multiple EC2 better than single? → Fault tolerance, horizontal scaling, 
+  zero-downtime deployments, distributed load, high availability.
+================================================================================
+---
+7. LLM OFFLINE COMMANDS FROM CMD
+--------------------------------------------------------------------------------
+# INSTALL OFFLINE LLM (ONE-TIME ONLY)
+$ pip install transformers torch
+# Wait for completion (2-5 minutes first time)
+
+# BASIC LLM USAGE FROM CMD
+$ python -c "from transformers import pipeline; gen = pipeline('text-generation', model='distilgpt2'); result = gen('Explain Kubernetes deployments:', max_new_tokens=150); print('AI:', result[0]['generated_text'])"
+
+# CREATE REUSABLE llm.cmd SCRIPT
+# Step 1: Create the script
+$ echo @echo off > llm.cmd
+$ echo python -c "from transformers import pipeline; gen = pipeline('text-generation', model='distilgpt2'); result = gen('%1', max_new_tokens=500); print(result[0]['generated_text'])" >> llm.cmd
+
+# Step 2: Use the script
+$ llm.cmd "Explain Kubernetes pod auto-recovery in exam context"
+
+# BETTER VERSION (save as llm.cmd):
+$ @echo off
+$ set PROMPPT=%1
+$ if "%PROMPPT%"=="" (
+    echo Usage: llm "your question here"
+    exit /b
+)
+python -c "from transformers import pipeline; gen = pipeline('text-generation', model='distilgpt2'); result = gen('%PROMPPT%', max_new_tokens=500); echo %result[0]['generated_text']%"
+
+# USE: Simply type llm "your question here" in CMD
+
+# EXAM PROMPTS (COPY THESE):
+$ # Docker Prompt:
+$ llm "Explain Docker multi-container application deployment with MySQL and WordPress: 1) Pull images, 2) Create network, 3) Run MySQL with persistence, 4) Run WordPress linked to MySQL, 5) Access via browser, 6) Demonstrate container recovery"
+
+$ # Jenkins Prompt:
+$ llm "Explain Jenkins Freestyle Project setup for library management system: 1) Install plugins, 2) Create Freestyle job, 3) Configure GitHub repo, 4) Set build triggers, 5) Configure Maven goals (clean test), 6) Archive artifacts, 7) Demonstrate failed build recovery"
+
+$ # Kubernetes Prompt:
+$ llm "Explain Kubernetes Minikube deployment: 1) Start cluster, 2) Create Deployment with 2 replicas, 3) Expose as NodePort Service, 4) Scale from 2 to 5 replicas, 5) Simulate pod crash and auto-recovery, 6) Rolling update and rollback"
+
+$ # Nagios Prompt:
+$ llm "Explain Nagios monitoring setup: 1) Pull Docker image, 2) Run on port 8080, 3) Configure host monitoring, 4) Configure service checks (HTTP, MySQL), 5) Set WARNING/CRITICAL thresholds, 6) Dashboard status colors"
+
+$ # AWS EC2 Prompt:
+$ llm "Explain AWS EC2 deployment: 1) Launch instance (t2.micro, free tier), 2) Configure Security Group (SSH restricted to my IP, HTTP open), 3) Key pair for SSH, 4) Browser accessibility via public IP, 5) What causes inaccessibility, 7) ALB + multiple EC2 benefits"
+================================================================================
+---
+8. QUICK REFERENCE CARD
+--------------------------------------------------------------------------------
+DOCKER:
+- docker pull mysql:8.0
+- docker pull wordpress:latest
+- docker network create library-network
+- docker run -d --name library-mysql --network library-network -e MYSQL_ROOT_PASSWORD=Root@12345 -v mysql-data:/var/lib/mysql --restart unless-stopped mysql:8.0
+- docker run -d --name library-wordpress --network library-network -p 8080:80 -e WORDPRESS_DB_HOST=library-mysql:3306 -e WORDPRESS_DB_USER=root -e WORDPRESS_DB_PASSWORD=Root@12345 -e WORDPRESS_DB_NAME=librarydb --restart unless-stopped wordpress:latest
+- Browser: http://localhost:8081
+
+JENKINS:
+- http://localhost:8080
+- Admin / jenkinsadmin (or from secrets file)
+- New Item → Freestyle project → library-management-ci
+- GitHub URL: https://github.com/deepthisagar7/library-management.git
+- Build Triggers: H/5 * * * *
+- Goals: clean test
+- Artifacts: **/target/*.war
+
+KUBERNETES:
+- minikube start
+- kubectl create deployment library-app --image=wordpress:latest --replicas=2
+- kubectl expose deployment library-app --type=NodePort --port=80
+- kubectl scale deployment library-app --replicas=5
+- kubectl set image deployment/library-app library-app=wordpress:latest
+- kubectl rollout undo deployment/library-app
+
+AWS:
+- EC2: t2.micro, free tier
+- Security Group: SSH (my IP), HTTP (0.0.0.0/0)
+- Key pair: .pem file
+- Browser: http://<public-ip-or-dns>:8080
+
+NAGIOS:
+- docker run -d --name nagios -p 8080:80 -e NAGIOS_PASSWORD=nagiosadmin nagios/base
+- Browser: http://localhost:8080
+- Login: nagiosadmin / nagiosadmin
+- WARNING: threshold exceeded, monitor
+- CRITICAL: serious problem, immediate action
+================================================================================
+---
+9. EXAM DAY CHECKLIST
+--------------------------------------------------------------------------------
+BEFORE EXAM:
+- [ ] Get good night's sleep
+- [ ] Eat breakfast
+- [ ] Arrive early at exam venue
+- [ ] Bring valid ID
+- [ ] Review scenario question answers (35+ provided above)
+- [ ] Memorize high-frequency topics (Docker Compose, Jenkins, Kubernetes, AWS)
+
+DURING EXAM:
+- [ ] Read all questions twice before answering
+- [ ] Start with what you know - attempt familiar questions first
+- [ ] Write scenario answers in points (easier to grading)
+- [ ] Don't leave any question blank - attempt all
+- [ ] Manage time - 5 papers, budget time accordingly
+- [ ] If stuck on practical - describe steps you would take
+- [ ] Scenario questions = 25% of each paper - prioritize these!
+
+SCENARIO QUESTIONS (25% EACH PAPER):
+- [ ] Memorize 5 questions per paper from the lists above
+- [ ] Write concise answers (3-4 lines each)
+- [ ] Include command names where relevant
+- [ ] Focus on "why" and "how" not just "what"
+- [ ] Use examples from practical labs
+
+TIME MANAGEMENT:
+- [ ] Roughly 15-20 minutes per paper if 100 minutes total
+- [ ] Don't spend more than 2 minutes on any single question initially
+- [ ] Mark difficult questions and return to them if time permits
+
+FINAL TIPS:
+- [ ] Draw diagrams for architecture questions (Docker network, Kubernetes cluster, AWS setup)
+- [ ] Write command names in answers (examiners give marks for mentioning correct commands)
+- [ ] Don't write excessive code - focus on configuration and concepts
+- [ ] If practical doesn't work - describe the steps you would take, instructor will understand
+- [ ] Bring this guide if allowed, or at least the key commands/concepts
+- [ ] Stay calm - you've prepared for this!
+
+================================================================================
+                    YOU CAN DO THIS! GOOD LUCK! 📚✨
+================================================================================
