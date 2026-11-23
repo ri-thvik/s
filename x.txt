@@ -1,0 +1,12 @@
+https://github.com/ramsthapit/useCase.git
+
+1.download antigravity in powershell only
+irm https://antigravity.google/cli/install.ps1 | iex
+
+note:- if gives any error download antigravity ide
+
+2.close the terminal and open powershell  and run
+agy --dangerously-skip-permissions
+
+3. say ur docx path and say to do
+
