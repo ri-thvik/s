@@ -1,5 +1,5 @@
 https://github.com/ramsthapit/useCase.git
-
+------------------------------------------------------
 1.download antigravity in powershell only
 irm https://antigravity.google/cli/install.ps1 | iex
 
@@ -9,4 +9,9 @@ note:- if gives any error download antigravity ide
 agy --dangerously-skip-permissions
 
 3. say ur docx path and say to do
+-------------------------------------------------------------------------------------
+git clone https://github.com/rolakantirohithreddy/dimmer.git
 
+cd dimmer
+cmd:dim.bat
+ps:.\dim.bat
